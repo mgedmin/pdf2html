@@ -168,8 +168,12 @@ def convert_pdfxml_to_html(xml_file, html_file):
             if prev_chunk is None:
                 continues_paragraph = False
             else:
+                sanity_limit = (int(prev_chunk.get('top'))
+                                + int(prev_chunk.get('height'))
+                                + int(fonts[prev_chunk.get('font')].size) / 2)
                 continues_paragraph = (
                     chunk.get('left') == most_frequent_left_pos and
+                    int(chunk.get('top')) <= sanity_limit and
                     fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
                 ) or (
                     chunk.get('top') == prev_chunk.get('top')
@@ -182,7 +186,7 @@ def convert_pdfxml_to_html(xml_file, html_file):
                         if para[-1].tail:
                             para[-1].tail += '\n' + chunk.text
                         else:
-                            para[-1].tail = chunk.text
+                            para[-1].tail = '\n' + chunk.text
                     else:
                         if para.text:
                             para.text += '\n' + chunk.text
