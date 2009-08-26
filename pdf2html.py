@@ -181,17 +181,18 @@ def convert_pdfxml_to_html(xml_file, html_file):
 
             if para is not None and continues_paragraph:
                 # join with previous
-                if chunk.text:
-                    if len(para):
-                        if para[-1].tail:
-                            para[-1].tail += '\n' + chunk.text
-                        else:
-                            para[-1].tail = '\n' + chunk.text
+                if chunk.text is None:
+                    chunk.text = ''
+                if len(para):
+                    if para[-1].tail:
+                        para[-1].tail += '\n' + chunk.text
                     else:
-                        if para.text:
-                            para.text += '\n' + chunk.text
-                        else:
-                            para.text = chunk.text
+                        para[-1].tail = '\n' + chunk.text
+                else:
+                    if para.text:
+                        para.text += '\n' + chunk.text
+                    else:
+                        para.text = chunk.text
                 para[len(para):] = chunk[:]
             else:
                 # start new paragraph
