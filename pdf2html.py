@@ -82,20 +82,66 @@ def convert_pdfxml_to_html(xml_file, html_file):
     body = ET.SubElement(html, 'body')
     body.text = body.tail = '\n'
 
-    frequencies = defaultdict(int)
-    for page in tree.findall('page'):
-        for chunk in page.findall('text'):
-            frequencies[chunk.get('left')] += 1
+    class Font(object):
+        def __init__(self, size, family, color):
+            self.size = size
+            self.family = family
+            self.color = color
 
-    frequencies = [(freq, left) for left, freq in frequencies.items()]
-    frequencies.sort()
-    if frequencies:
-        most_frequent_left_pos = frequencies[-1][1]
-    else:
-        most_frequent_left_pos = object() # something not equal to anything else
-    # Debugging:
-    ## for freq, left in frequencies:
-    ##     print '%3s %d' % (left, freq)
+        def __hash__(self):
+            return hash(self.size, self.family, self.color)
+
+        def __eq__(self, other):
+            return type(other) == type(self) and (self.size, self.family,
+                                                  self.color) == (other.size,
+                                                  other.family, other.color)
+
+        def __ne__(self, other):
+            return not self.__eq__(other)
+
+    fonts = {}
+    for page in tree.findall('page'):
+        for fontspec in page.findall('fontspec'):
+            font = Font(fontspec.get('size'), fontspec.get('family'),
+                        fontspec.get('color'))
+            fonts[fontspec.get('id')] = font
+
+    def count_frequencies(attr):
+        frequencies = defaultdict(int)
+        for page in tree.findall('page'):
+            for chunk in page.findall('text'):
+                frequencies[chunk.get(attr)] += 1
+        return frequencies
+
+    def most_frequent(attr):
+        frequencies = count_frequencies(attr)
+        frequencies = [(freq, value) for value, freq in frequencies.items()]
+        frequencies.sort()
+        if frequencies:
+            return frequencies[-1][1]
+        else:
+            return object() # something not equal to anything else
+
+    most_frequent_left_pos = most_frequent('left')
+    most_frequent_height = most_frequent('height')
+    most_frequent_font = fonts[most_frequent('font')]
+        # XXX sometimes you have more than one fontspec with the same
+        # attributes (family, size, color), this might skew the frequency
+        # distribution somewhat
+
+    def looks_like_a_heading(chunk):
+        if len(chunk) != 1:
+            return False
+        bold = chunk
+        while bold.tag != 'b':
+            if len(bold) != 1:
+                return False
+            bold = bold[0]
+        return (chunk.get('left') != most_frequent_left_pos
+                and fonts[chunk.get('font')] != most_frequent_font
+                and int(chunk.get('height')) >= int(most_frequent_height)
+                and bold.text
+                and any(c.isalpha() for c in bold.text))
 
     para = None
     prev_chunk = None
@@ -124,7 +170,10 @@ def convert_pdfxml_to_html(xml_file, html_file):
                 para[len(para):] = chunk[:]
             else:
                 # start new paragraph
-                para = ET.SubElement(body, 'p')
+                if looks_like_a_heading(chunk):
+                    para = ET.SubElement(body, 'h2')
+                else:
+                    para = ET.SubElement(body, 'p')
                 para.text = chunk.text
                 para[:] = chunk[:]
                 para.tail = '\n'
