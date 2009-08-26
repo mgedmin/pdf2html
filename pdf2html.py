@@ -43,7 +43,7 @@ def convert_pdf_to_html(pdf_file, html_file):
     tmpdir = tempfile.mkdtemp('pdf2html')
     try:
         xml_file = os.path.join(tmpdir, 'data') # pdf2html always adds .xml
-        subprocess.check_call(['pdf2html', '-xml', pdf_file, xml_file])
+        subprocess.check_call(['pdftohtml', '-xml', pdf_file, xml_file])
         xml_file += '.xml'
         convert_pdfxml_to_html(xml_file, html_file)
     finally:
