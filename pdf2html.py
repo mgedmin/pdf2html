@@ -170,7 +170,7 @@ def convert_pdfxml_to_html(xml_file, html_file):
             else:
                 continues_paragraph = (
                     chunk.get('left') == most_frequent_left_pos and
-                    chunk.get('font') == prev_chunk.get('font')
+                    fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
                 ) or (
                     chunk.get('top') == prev_chunk.get('top')
                 )
