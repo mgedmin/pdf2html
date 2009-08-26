@@ -21,6 +21,11 @@ The HTML produced differs from the one you'd get from pdftohtml in these ways:
     * The HTML produced is modern XHTML, not ancient HTML 3 with an explicit
       dark-grey bgcolor on the <BODY>.
 
+Bugs:
+
+    * doesn't handle superscript well
+    * loses information such as fonts and colours
+
 Copyright (c) 2009 Marius Gedminas <marius@gedmin.as>.
 Licenced under the GNU GPL.
 """
@@ -33,6 +38,10 @@ import sys
 import tempfile
 from collections import defaultdict
 from xml.etree import cElementTree as ET
+
+
+__version__ = '0.1'
+__author__ = 'Marius Gedminas'
 
 
 class Error(Exception):
@@ -76,6 +85,15 @@ def convert_pdfxml_to_html(xml_file, html_file):
     html.text = html.tail = '\n'
     head = ET.SubElement(html, 'head')
     head.text = head.tail = '\n'
+    charset = ET.SubElement(head, 'meta',
+                            {'http-equiv': 'content-type',
+                             'content': 'text/html; charset=UTF-8'})
+    charset.tail = '\n'
+    generator = ET.SubElement(head, 'meta',
+                              name='generator',
+                              content='pdf2html %s by %s' % (__version__,
+                                                             __author__))
+    generator.tail = '\n'
     title = ET.SubElement(head, 'title')
     title.text = html_file
     title.tail = '\n'
@@ -152,7 +170,10 @@ def convert_pdfxml_to_html(xml_file, html_file):
             else:
                 continues_paragraph = (
                     chunk.get('left') == most_frequent_left_pos and
-                    chunk.get('font') == prev_chunk.get('font'))
+                    chunk.get('font') == prev_chunk.get('font')
+                ) or (
+                    chunk.get('top') == prev_chunk.get('top')
+                )
 
             if para is not None and continues_paragraph:
                 # join with previous
