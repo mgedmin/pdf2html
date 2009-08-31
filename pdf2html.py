@@ -124,28 +124,47 @@ def convert_pdfxml_to_html(xml_file, html_file):
                         fontspec.get('color'))
             fonts[fontspec.get('id')] = font
 
-    def count_frequencies(attr):
+    def iter_attrs(attr):
         frequencies = defaultdict(int)
         for page in tree.findall('page'):
             for chunk in page.findall('text'):
-                frequencies[chunk.get(attr)] += 1
+                yield chunk.get(attr)
+
+    def count_frequencies(attr):
+        frequencies = defaultdict(int)
+        for value in iter_attrs(attr):
+            frequencies[value] += 1
         return frequencies
 
-    def most_frequent(attr):
+    def n_most_frequent(attr, n):
         frequencies = count_frequencies(attr)
         frequencies = [(freq, value) for value, freq in frequencies.items()]
         frequencies.sort()
-        if frequencies:
-            return frequencies[-1][1]
+        if False: # debug
+            print attr + ':'
+            for f, v in frequencies[-5:]:
+                print f, v
+        return [value for (freq, value) in frequencies[-n:]]
+
+    def most_frequent(attr):
+        values = n_most_frequent(attr, 1)
+        if values:
+            return values[0]
         else:
             return object() # something not equal to anything else
 
-    most_frequent_left_pos = most_frequent('left')
     most_frequent_height = most_frequent('height')
     most_frequent_font = fonts[most_frequent('font')]
         # XXX sometimes you have more than one fontspec with the same
         # attributes (family, size, color), this might skew the frequency
         # distribution somewhat
+
+    # XXX: could crash if there are no text chunks at all
+    text_width = max(int(w) for w in iter_attrs('width')) * 9 / 10
+
+    # XXX could crash if there are no text chunks or all of them are at the
+    # same x position
+    left_pos, indent = sorted(map(int, n_most_frequent('left', 2)))
 
     def looks_like_a_heading(chunk):
         if len(chunk) != 1:
@@ -155,8 +174,7 @@ def convert_pdfxml_to_html(xml_file, html_file):
             if len(bold) != 1:
                 return False
             bold = bold[0]
-        return (chunk.get('left') != most_frequent_left_pos
-                and fonts[chunk.get('font')] != most_frequent_font
+        return (fonts[chunk.get('font')] != most_frequent_font
                 and int(chunk.get('height')) >= int(most_frequent_height)
                 and bold.text
                 and any(c.isalpha() for c in bold.text))
@@ -172,7 +190,9 @@ def convert_pdfxml_to_html(xml_file, html_file):
                                 + int(prev_chunk.get('height'))
                                 + int(fonts[prev_chunk.get('font')].size) / 2)
                 continues_paragraph = (
-                    chunk.get('left') == most_frequent_left_pos and
+                    int(chunk.get('left')) != indent and
+                    int(chunk.get('left')) <= int(prev_chunk.get('left')) and
+                    int(prev_chunk.get('width')) >= text_width and
                     int(chunk.get('top')) <= sanity_limit and
                     fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
                 ) or (
