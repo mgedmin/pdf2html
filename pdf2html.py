@@ -181,6 +181,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
     odd_left, odd_indent = sorted(map(int, n_most_frequent('left', 2, odd_pages)))
     even_left, even_indent = sorted(map(int, n_most_frequent('left', 2, even_pages)))
 
+    horiz_leeway = abs(even_left - odd_left)
     indents = set((odd_indent, even_indent))
 
     # XXX: could crash if there are no text chunks at all
@@ -195,6 +196,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
     if debug:
         print "Guessing left margin = %d (odd pages), %d (even pages)" % (odd_left, even_left)
         print "Guessing indent = %d (odd pages), %d (even pages)" % (odd_indent, even_indent)
+        print "Guessing horizontal leeway = %d" % (horiz_leeway)
         print "Guessing minimum paragraph line width = %d" % text_width
 
     header_pos = None
@@ -244,7 +246,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                                 + int(fonts[prev_chunk.get('font')].size) / 2)
                 continues_paragraph = (
                     int(chunk.get('left')) != indent and
-                    int(chunk.get('left')) <= int(prev_chunk.get('left')) and
+                    int(chunk.get('left')) <= int(prev_chunk.get('left')) + horiz_leeway and
                     int(prev_chunk.get('width')) >= text_width and
                     int(chunk.get('top')) <= sanity_limit and
                     fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
@@ -257,7 +259,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                     print ' ', ET.tostring(chunk).rstrip()
                     print "tops match?", chunk.get('top') == prev_chunk.get('top')
                     print "OR not indent:", int(chunk.get('left')) != indent
-                    print "AND same or to the left:", int(chunk.get('left')) <= int(prev_chunk.get('left'))
+                    print "AND same or to the left:", int(chunk.get('left')) <= int(prev_chunk.get('left')) + horiz_leeway
                     print "AND prev chunk wide enough:", int(prev_chunk.get('width')) >= text_width
                     print "AND same font:", fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
                     print "AND close enough vertically:", int(chunk.get('top')) <= sanity_limit
