@@ -140,10 +140,11 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
         frequencies = count_frequencies(attr)
         frequencies = [(freq, value) for value, freq in frequencies.items()]
         frequencies.sort()
-        if False: # debug
-            print attr + ':'
+        if debug:
+            print "Top 5 most frequent values of %r:" % attr
             for f, v in frequencies[-5:]:
-                print f, v
+                bar = '*' * (30 * f / frequencies[-1][0])
+                print '  %6d chunks have value %-6s %s' % (f, v, bar)
         return [value for (freq, value) in frequencies[-n:]]
 
     def most_frequent(attr):
@@ -203,9 +204,9 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
                     chunk.get('top') == prev_chunk.get('top')
                 )
                 if debug and chunk.get('assert_continues') and not continues_paragraph:
-                    print "DEBUG assertion failed"
-                    print ET.tostring(prev_chunk)
-                    print ET.tostring(chunk)
+                    print "*** DEBUG assertion failed"
+                    print ' ', ET.tostring(prev_chunk).rstrip()
+                    print ' ', ET.tostring(chunk).rstrip()
                     print "tops match?", chunk.get('top') == prev_chunk.get('top')
                     print "OR not indent:", int(chunk.get('left')) != indent
                     print "AND same or to the left:", int(chunk.get('left')) <= int(prev_chunk.get('left'))
