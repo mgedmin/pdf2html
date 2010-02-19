@@ -172,9 +172,6 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
         # attributes (family, size, color), this might skew the frequency
         # distribution somewhat
 
-    # XXX: could crash if there are no text chunks at all
-    text_width = max(int(w) for w in iter_attrs('width')) * 9 / 10
-
     # XXX could crash if there are no text chunks or all of them are at the
     # same x position
     odd_left, odd_indent = sorted(map(int, n_most_frequent('left', 2, odd_pages)))
@@ -182,9 +179,19 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
 
     indents = set((odd_indent, even_indent))
 
+    # XXX: could crash if there are no text chunks at all
+    if debug:
+        max_text_width = max(int(w) for w in iter_attrs('width'))
+        print "Widest text chunk = %d" % max_text_width
+    text_width = max(map(int, n_most_frequent('width', 3)))
+    if debug:
+        print "Guessing paragraph width = %d" % text_width
+    text_width = text_width * 9 / 10
+
     if debug:
         print "Guessing left margin = %d (odd pages), %d (even pages)" % (odd_left, even_left)
         print "Guessing indent = %d (odd pages), %d (even pages)" % (odd_indent, even_indent)
+        print "Guessing minimum paragraph line width = %d" % text_width
 
     def looks_like_a_heading(chunk):
         if len(chunk) != 1:
@@ -229,9 +236,9 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
                     print "tops match?", chunk.get('top') == prev_chunk.get('top')
                     print "OR not indent:", int(chunk.get('left')) != indent
                     print "AND same or to the left:", int(chunk.get('left')) <= int(prev_chunk.get('left'))
-                    print "AND wide enough:", int(prev_chunk.get('width')) >= text_width
+                    print "AND prev chunk wide enough:", int(prev_chunk.get('width')) >= text_width
                     print "AND same font:", fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
-                    print "AND low enough:", int(chunk.get('top')) <= sanity_limit
+                    print "AND close enough vertically:", int(chunk.get('top')) <= sanity_limit
                     print "where sanity_limit = %d + %d + %d = %d" % (
                             int(prev_chunk.get('top')),
                             int(prev_chunk.get('height')),
