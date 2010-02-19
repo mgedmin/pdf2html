@@ -26,7 +26,24 @@ Bugs:
     * doesn't handle superscript well
     * loses information such as fonts and colours
 
-Copyright (c) 2009 Marius Gedminas <marius@gedmin.as>.
+Config file:
+
+    Put a .pdf2htmlrc in the same directory as the source PDF file.  Every
+    section, denoted [pattern] can apply options to files matching the
+    pattern, e.g.
+
+       [hello.pdf]
+       header_pos = 166
+
+       [*.pdf]
+       footer_pos = -1
+
+    Currently the only options you can specify this way are header and
+    footer positions if you want to suppres header/footer text from
+    the output.  The position is specified in points, with 0 at the top
+    of the page, increasing downwards.
+
+Copyright (c) 2009-2010 Marius Gedminas <marius@gedmin.as>.
 Licenced under the GNU GPL.
 """
 
