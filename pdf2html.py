@@ -36,6 +36,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import ConfigParser
+import fnmatch
 from collections import defaultdict
 from xml.etree import cElementTree as ET
 
@@ -46,6 +48,29 @@ __author__ = 'Marius Gedminas'
 
 class Error(Exception):
     pass
+
+
+class Options(object):
+    """Conversion options"""
+
+    debug = False
+
+    header_pos = None
+    footer_pos = None
+
+
+def parse_config_file(options, config_file, filename_to_match='*'):
+    cp = ConfigParser.SafeConfigParser()
+    cp.read([config_file])
+    for s in cp.sections():
+        if fnmatch.fnmatch(filename_to_match, s):
+            if options.debug:
+                print "Applying [%s] from %s" % (s, config_file)
+            if cp.has_option(s, 'header_pos'):
+                options.header_pos = cp.getint(s, 'header_pos')
+            if cp.has_option(s, 'footer_pos'):
+                options.footer_pos = cp.getint(s, 'footer_pos')
+
 
 
 def convert_pdf_to_html(pdf_file, html_file, opts=None):
@@ -200,13 +225,15 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
         print "Guessing minimum paragraph line width = %d" % text_width
 
     header_pos = None
-    if opts and opts.header:
-        header_pos = opts.header
-        print "Suppressing header text above %d" % header_pos
+    if opts and opts.header_pos and opts.header_pos != -1:
+        header_pos = opts.header_pos
+        if opts.debug:
+            print "Suppressing header text above %d" % header_pos
     footer_pos = None
-    if opts and opts.footer:
-        footer_pos = opts.footer
-        print "Suppressing footer text below %d" % footer_pos
+    if opts and opts.footer_pos and opts.header_pos != -1:
+        footer_pos = opts.footer_pos
+        if opts.debug:
+            print "Suppressing footer text below %d" % footer_pos
 
     def looks_like_a_heading(chunk):
         if len(chunk) != 1:
@@ -347,11 +374,22 @@ def main():
     else:
         output_name = os.path.splitext(pdf_name)[0] + '.html'
 
+    options = Options()
+    options.debug = opts.debug
+
+    config_name = os.path.join(os.path.dirname(pdf_name), '.pdf2htmlrc')
+    parse_config_file(options, config_name, pdf_name)
+
+    if opts.header:
+        options.header_pos = opts.header
+    if opts.footer:
+        options.footer_pos = opts.footer
+
     try:
         if os.path.splitext(pdf_name)[1] == '.xml':
-            convert_pdfxml_to_html(pdf_name, output_name, opts)
+            convert_pdfxml_to_html(pdf_name, output_name, options)
         else:
-            convert_pdf_to_html(pdf_name, output_name, opts)
+            convert_pdf_to_html(pdf_name, output_name, options)
     except Error, e:
         sys.exit(str(e))
 
