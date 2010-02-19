@@ -124,24 +124,28 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
                         fontspec.get('color'))
             fonts[fontspec.get('id')] = font
 
-    def iter_attrs(attr):
+    def iter_attrs(attr, pagefilter=None):
         frequencies = defaultdict(int)
         for page in tree.findall('page'):
+            if pagefilter and not pagefilter(page):
+                continue
             for chunk in page.findall('text'):
                 yield chunk.get(attr)
 
-    def count_frequencies(attr):
+    def count_frequencies(attr, pagefilter=None):
         frequencies = defaultdict(int)
-        for value in iter_attrs(attr):
+        for value in iter_attrs(attr, pagefilter):
             frequencies[value] += 1
         return frequencies
 
-    def n_most_frequent(attr, n):
-        frequencies = count_frequencies(attr)
+    def n_most_frequent(attr, n, pagefilter=None, extratitle=''):
+        frequencies = count_frequencies(attr, pagefilter)
         frequencies = [(freq, value) for value, freq in frequencies.items()]
         frequencies.sort()
         if debug:
-            print "Top 5 most frequent values of %r:" % attr
+            if not extratitle and pagefilter and pagefilter.__doc__:
+                extratitle = " (%s)" % pagefilter.__doc__.strip()
+            print "Top 5 most frequent values of %r:%s" % (attr, extratitle)
             for f, v in frequencies[-5:]:
                 bar = '*' * (30 * f / frequencies[-1][0])
                 print '  %6d chunks have value %-6s %s' % (f, v, bar)
@@ -154,6 +158,14 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
         else:
             return object() # something not equal to anything else
 
+    def odd_pages(page):
+        "odd pages"
+        return int(page.get('number')) % 2 == 1
+
+    def even_pages(page):
+        "even pages"
+        return int(page.get('number')) % 2 == 0
+
     most_frequent_height = most_frequent('height')
     most_frequent_font = fonts[most_frequent('font')]
         # XXX sometimes you have more than one fontspec with the same
@@ -165,11 +177,14 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
 
     # XXX could crash if there are no text chunks or all of them are at the
     # same x position
-    left_pos, indent = sorted(map(int, n_most_frequent('left', 2)))
+    odd_left, odd_indent = sorted(map(int, n_most_frequent('left', 2, odd_pages)))
+    even_left, even_indent = sorted(map(int, n_most_frequent('left', 2, even_pages)))
+
+    indents = set((odd_indent, even_indent))
 
     if debug:
-        print "Guessing left margin = %d" % left_pos
-        print "Guessing indent = %d" % indent
+        print "Guessing left margin = %d (odd pages), %d (even pages)" % (odd_left, even_left)
+        print "Guessing indent = %d (odd pages), %d (even pages)" % (odd_indent, even_indent)
 
     def looks_like_a_heading(chunk):
         if len(chunk) != 1:
@@ -187,6 +202,10 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
     para = None
     prev_chunk = None
     for page in tree.findall('page'):
+        if odd_pages(page):
+            indent = odd_indent
+        else:
+            indent = even_indent
         for chunk in page.findall('text'):
             if prev_chunk is None:
                 continues_paragraph = False
