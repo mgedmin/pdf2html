@@ -74,6 +74,8 @@ class Options(object):
 
     debug = False
 
+    title = None
+    subtitle = None
     header_pos = None
     footer_pos = None
 
@@ -85,6 +87,10 @@ def parse_config_file(options, config_file, filename_to_match='*'):
         if fnmatch.fnmatch(filename_to_match, s):
             if options.debug:
                 print "Applying [%s] from %s" % (s, config_file)
+            if cp.has_option(s, 'title'):
+                options.title = cp.get(s, 'title')
+            if cp.has_option(s, 'subtitle'):
+                options.subtitle = cp.get(s, 'subtitle')
             if cp.has_option(s, 'header_pos'):
                 options.header_pos = cp.getint(s, 'header_pos')
             if cp.has_option(s, 'footer_pos'):
@@ -143,10 +149,21 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                                                              __author__))
     generator.tail = '\n'
     title = ET.SubElement(head, 'title')
-    title.text = html_file
+    if opts and opts.title:
+        title.text = opts.title
+    else:
+        title.text = html_file
     title.tail = '\n'
     body = ET.SubElement(html, 'body')
     body.text = body.tail = '\n'
+    if opts.title:
+        h1 = ET.SubElement(body, 'h1')
+        h1.text = opts.title
+        h1.tail = '\n'
+    if opts.subtitle:
+        h2 = ET.SubElement(body, 'h2')
+        h2.text = opts.subtitle
+        h2.tail = '\n'
 
     class Font(object):
         def __init__(self, size, family, color):
@@ -403,6 +420,8 @@ def main():
                       action='store_true')
     parser.add_option('--header', help='suppress text above this point (header)', type=int)
     parser.add_option('--footer', help='suppress text below this point (footer)', type=int)
+    parser.add_option('--title', help='document title')
+    parser.add_option('--subtitle', help='document subtitle')
 
     opts, args = parser.parse_args()
     if len(args) < 1:
@@ -422,6 +441,10 @@ def main():
     config_name = os.path.join(os.path.dirname(pdf_name), '.pdf2htmlrc')
     parse_config_file(options, config_name, pdf_name)
 
+    if opts.title:
+        options.title = opts.title
+    if opts.subtitle:
+        options.subtitle = opts.subtitle
     if opts.header:
         options.header_pos = opts.header
     if opts.footer:
