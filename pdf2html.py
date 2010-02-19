@@ -40,7 +40,7 @@ from collections import defaultdict
 from xml.etree import cElementTree as ET
 
 
-__version__ = '0.1'
+__version__ = '0.2'
 __author__ = 'Marius Gedminas'
 
 
