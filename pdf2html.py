@@ -55,6 +55,7 @@ import sys
 import tempfile
 import ConfigParser
 import fnmatch
+import re
 from collections import defaultdict
 from xml.etree import cElementTree as ET
 
@@ -368,6 +369,21 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                     body.append(para)
             if not suppress:
                 prev_chunk = chunk
+
+    def postprocess(s):
+        s = re.sub(r'-\n([[:lower:]])', r'\1', s)
+        s = s.replace(u'\uFB00', 'ff')
+        s = s.replace(u'\uFB01', 'fi')
+        s = s.replace(u'\uFB02', 'fl')
+        s = s.replace(u'\uFB03', 'ffi')
+        s = s.replace(u'\uFB04', 'ffl')
+        return s
+
+    for item in html.getiterator():
+        if item.text:
+            item.text = postprocess(item.text)
+        if item.tail:
+            item.tail = postprocess(item.tail)
 
     file(html_file, 'w').write(ET.tostring(html))
 
