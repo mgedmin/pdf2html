@@ -48,18 +48,18 @@ class Error(Exception):
     pass
 
 
-def convert_pdf_to_html(pdf_file, html_file):
+def convert_pdf_to_html(pdf_file, html_file, debug=False):
     tmpdir = tempfile.mkdtemp('pdf2html')
     try:
         xml_file = os.path.join(tmpdir, 'data') # pdf2html always adds .xml
         subprocess.check_call(['pdftohtml', '-xml', pdf_file, xml_file])
         xml_file += '.xml'
-        convert_pdfxml_to_html(xml_file, html_file)
+        convert_pdfxml_to_html(xml_file, html_file, debug)
     finally:
         shutil.rmtree(tmpdir)
 
 
-def convert_pdfxml_to_html(xml_file, html_file):
+def convert_pdfxml_to_html(xml_file, html_file, debug=False):
     # The structure of the pdf2xml documents is this:
     #   <pdf2xml>
     #     <page number="1" position="absolute" top="0" left="0"
@@ -166,6 +166,10 @@ def convert_pdfxml_to_html(xml_file, html_file):
     # same x position
     left_pos, indent = sorted(map(int, n_most_frequent('left', 2)))
 
+    if debug:
+        print "Guessing left margin = %d" % left_pos
+        print "Guessing indent = %d" % indent
+
     def looks_like_a_heading(chunk):
         if len(chunk) != 1:
             return False
@@ -198,6 +202,21 @@ def convert_pdfxml_to_html(xml_file, html_file):
                 ) or (
                     chunk.get('top') == prev_chunk.get('top')
                 )
+                if debug and chunk.get('assert_continues') and not continues_paragraph:
+                    print "DEBUG assertion failed"
+                    print ET.tostring(prev_chunk)
+                    print ET.tostring(chunk)
+                    print "tops match?", chunk.get('top') == prev_chunk.get('top')
+                    print "OR not indent:", int(chunk.get('left')) != indent
+                    print "AND same or to the left:", int(chunk.get('left')) <= int(prev_chunk.get('left'))
+                    print "AND wide enough:", int(prev_chunk.get('width')) >= text_width
+                    print "AND same font:", fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
+                    print "AND low enough:", int(chunk.get('top')) <= sanity_limit
+                    print "where sanity_limit = %d + %d + %d = %d" % (
+                            int(prev_chunk.get('top')),
+                            int(prev_chunk.get('height')),
+                            int(fonts[prev_chunk.get('font')].size) / 2,
+                            sanity_limit)
 
             if para is not None and continues_paragraph:
                 # join with previous
@@ -230,6 +249,8 @@ def convert_pdfxml_to_html(xml_file, html_file):
 
 def main():
     parser = optparse.OptionParser(usage='%prog input.pdf [output.html]')
+    parser.add_option('--debug', help='print verbose diagnostics',
+                      action='store_true')
     opts, args = parser.parse_args()
     if len(args) < 1:
         parser.error('please specify an input file name')
@@ -244,9 +265,9 @@ def main():
 
     try:
         if os.path.splitext(pdf_name)[1] == '.xml':
-            convert_pdfxml_to_html(pdf_name, output_name)
+            convert_pdfxml_to_html(pdf_name, output_name, opts.debug)
         else:
-            convert_pdf_to_html(pdf_name, output_name)
+            convert_pdf_to_html(pdf_name, output_name, opts.debug)
     except Error, e:
         sys.exit(str(e))
 
