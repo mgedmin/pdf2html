@@ -48,18 +48,22 @@ class Error(Exception):
     pass
 
 
-def convert_pdf_to_html(pdf_file, html_file, debug=False):
+def convert_pdf_to_html(pdf_file, html_file, opts=None):
     tmpdir = tempfile.mkdtemp('pdf2html')
     try:
         xml_file = os.path.join(tmpdir, 'data') # pdf2html always adds .xml
         subprocess.check_call(['pdftohtml', '-xml', pdf_file, xml_file])
         xml_file += '.xml'
-        convert_pdfxml_to_html(xml_file, html_file, debug)
+        convert_pdfxml_to_html(xml_file, html_file, opts)
     finally:
         shutil.rmtree(tmpdir)
 
 
-def convert_pdfxml_to_html(xml_file, html_file, debug=False):
+def convert_pdfxml_to_html(xml_file, html_file, opts=None):
+    debug = False
+    if opts:
+        debug = opts.debug
+
     # The structure of the pdf2xml documents is this:
     #   <pdf2xml>
     #     <page number="1" position="absolute" top="0" left="0"
@@ -193,6 +197,15 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
         print "Guessing indent = %d (odd pages), %d (even pages)" % (odd_indent, even_indent)
         print "Guessing minimum paragraph line width = %d" % text_width
 
+    header_pos = None
+    if opts and opts.header:
+        header_pos = opts.header
+        print "Suppressing header text above %d" % header_pos
+    footer_pos = None
+    if opts and opts.footer:
+        footer_pos = opts.footer
+        print "Suppressing footer text below %d" % footer_pos
+
     def looks_like_a_heading(chunk):
         if len(chunk) != 1:
             return False
@@ -213,8 +226,17 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
             indent = odd_indent
         else:
             indent = even_indent
-        for chunk in page.findall('text'):
-            if prev_chunk is None:
+        for chunk in sorted(page.findall('text'),
+                            key=lambda chunk: (int(chunk.get('top')),
+                                               int(chunk.get('left')))):
+            suppress = False
+            if header_pos and int(chunk.get('top')) <= header_pos:
+                suppress = True
+                suppress_reason = 'HEADER'
+            elif footer_pos and int(chunk.get('top')) >= footer_pos:
+                suppress = True
+                suppress_reason = 'FOOTER'
+            if prev_chunk is None or suppress:
                 continues_paragraph = False
             else:
                 sanity_limit = (int(prev_chunk.get('top'))
@@ -263,13 +285,22 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
             else:
                 # start new paragraph
                 if looks_like_a_heading(chunk):
-                    para = ET.SubElement(body, 'h2')
+                    new_para = ET.Element('h2')
                 else:
-                    para = ET.SubElement(body, 'p')
-                para.text = chunk.text
-                para[:] = chunk[:]
-                para.tail = '\n'
-            prev_chunk = chunk
+                    new_para = ET.Element('p')
+                new_para.text = chunk.text
+                new_para[:] = chunk[:]
+                new_para.tail = '\n'
+                if suppress:
+                    # I hate ElementTree: it escapes < and > inside comments
+                    comment = ET.Comment('%s: %s' % (suppress_reason, ET.tostring(new_para).strip()))
+                    comment.tail = '\n'
+                    body.append(comment)
+                else:
+                    para = new_para
+                    body.append(para)
+            if not suppress:
+                prev_chunk = chunk
 
     file(html_file, 'w').write(ET.tostring(html))
 
@@ -278,6 +309,9 @@ def main():
     parser = optparse.OptionParser(usage='%prog input.pdf [output.html]')
     parser.add_option('--debug', help='print verbose diagnostics',
                       action='store_true')
+    parser.add_option('--header', help='suppress text above this point (header)', type=int)
+    parser.add_option('--footer', help='suppress text below this point (footer)', type=int)
+
     opts, args = parser.parse_args()
     if len(args) < 1:
         parser.error('please specify an input file name')
@@ -292,9 +326,9 @@ def main():
 
     try:
         if os.path.splitext(pdf_name)[1] == '.xml':
-            convert_pdfxml_to_html(pdf_name, output_name, opts.debug)
+            convert_pdfxml_to_html(pdf_name, output_name, opts)
         else:
-            convert_pdf_to_html(pdf_name, output_name, opts.debug)
+            convert_pdf_to_html(pdf_name, output_name, opts)
     except Error, e:
         sys.exit(str(e))
 
