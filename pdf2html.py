@@ -24,6 +24,7 @@ The HTML produced differs from the one you'd get from pdftohtml in these ways:
 Bugs:
 
     * doesn't handle superscript well
+    * doesn't handle small caps
     * loses information such as fonts and colours
 
 Config file:
@@ -255,16 +256,24 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
 
     def looks_like_a_heading(chunk):
         if len(chunk) != 1:
-            return False
-        bold = chunk
-        while bold.tag != 'b':
-            if len(bold) != 1:
-                return False
-            bold = bold[0]
-        return (fonts[chunk.get('font')] != most_frequent_font
-                and int(chunk.get('height')) >= int(most_frequent_height)
-                and bold.text
-                and any(c.isalpha() for c in bold.text))
+            bold = None
+        else:
+            bold = chunk
+            while bold.tag != 'b':
+                if len(bold) != 1:
+                    bold = None
+                    break
+                bold = bold[0]
+        if bold:
+            return (fonts[chunk.get('font')] != most_frequent_font
+                    and int(chunk.get('height')) >= int(most_frequent_height)
+                    and bold.text
+                    and any(c.isalpha() for c in bold.text))
+        else:
+            return (fonts[chunk.get('font')] != most_frequent_font
+                    and int(chunk.get('height')) > int(most_frequent_height)
+                    and chunk.text
+                    and all(c.isdigit() for c in chunk.text))
 
     def drop_cap(prev_chunk, chunk):
         if not prev_chunk.text or not chunk.text:
