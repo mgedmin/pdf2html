@@ -371,7 +371,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                 prev_chunk = chunk
 
     def postprocess(s):
-        s = re.sub(r'-\n([[:lower:]])', r'\1', s)
+        s = re.sub(r'-\n([a-z])', r'\1', s)
         s = s.replace(u'\uFB00', 'ff')
         s = s.replace(u'\uFB01', 'fi')
         s = s.replace(u'\uFB02', 'fl')
