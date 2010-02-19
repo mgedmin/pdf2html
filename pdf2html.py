@@ -72,12 +72,54 @@ class Error(Exception):
 class Options(object):
     """Conversion options"""
 
-    debug = False
+    _defs = [
+        ('debug', bool),
+        ('title', str),
+        ('subtitle', str),
+        ('header_pos', int),
+        ('footer_pos', int),
+        ('skip_initial_pages', int),
+    ]
 
-    title = None
-    subtitle = None
-    header_pos = None
-    footer_pos = None
+    _help = dict(
+        debug='print verbose diagnostics',
+        header_pos='suppress text above this point (header)',
+        footer_pos='suppress text below this point (footer)',
+        title='document title',
+        subtitle='document subtitle',
+        skip_initial_pages='skip the first N pages of output',
+    )
+
+    def __init__(self):
+        for name, type in self._defs:
+            setattr(self, name, None)
+
+    def add_to_option_parser(self, parser):
+        for name, type in self._defs:
+            optname = name.replace('_', '-')
+            if type is bool:
+                parser.add_option('--' + optname, action='store_true',
+                                  help=self._help[name])
+                parser.add_option('--no-' + optname, action='store_false',
+                                  dest=name, help=optparse.SUPPRESS_HELP)
+            else:
+                parser.add_option('--' + optname, type=type,
+                                  help=self._help[name])
+
+    def update_from_config_section(self, cp, section):
+        getters = {bool: cp.getboolean,
+                   int: cp.getint,
+                   str: cp.get}
+        for name, type in self._defs:
+            if cp.has_option(section, name):
+                value = getters[type](section, name)
+                setattr(self, name, value)
+
+    def update_from_optparse(self, opts):
+        for name, type in self._defs:
+            value = getattr(opts, name, None)
+            if value is not None:
+                setattr(self, name, value)
 
 
 def parse_config_file(options, config_file, filename_to_match='*'):
@@ -87,15 +129,7 @@ def parse_config_file(options, config_file, filename_to_match='*'):
         if fnmatch.fnmatch(filename_to_match, s):
             if options.debug:
                 print "Applying [%s] from %s" % (s, config_file)
-            if cp.has_option(s, 'title'):
-                options.title = cp.get(s, 'title')
-            if cp.has_option(s, 'subtitle'):
-                options.subtitle = cp.get(s, 'subtitle')
-            if cp.has_option(s, 'header_pos'):
-                options.header_pos = cp.getint(s, 'header_pos')
-            if cp.has_option(s, 'footer_pos'):
-                options.footer_pos = cp.getint(s, 'footer_pos')
-
+            options.update_from_config_section(cp, s)
 
 
 def convert_pdf_to_html(pdf_file, html_file, opts=None):
@@ -319,7 +353,10 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                             key=lambda chunk: (int(chunk.get('top')),
                                                int(chunk.get('left')))):
             suppress = False
-            if header_pos and int(chunk.get('top')) <= header_pos:
+            if opts and opts.skip_initial_pages and int(page.get('number')) <= opts.skip_initial_pages:
+                suppress = True
+                suppress_reason = 'INITIAL PAGES'
+            elif header_pos and int(chunk.get('top')) <= header_pos:
                 suppress = True
                 suppress_reason = 'HEADER'
             elif footer_pos and int(chunk.get('top')) >= footer_pos:
@@ -415,13 +452,9 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
 
 
 def main():
+    options = Options()
     parser = optparse.OptionParser(usage='%prog input.pdf [output.html]')
-    parser.add_option('--debug', help='print verbose diagnostics',
-                      action='store_true')
-    parser.add_option('--header', help='suppress text above this point (header)', type=int)
-    parser.add_option('--footer', help='suppress text below this point (footer)', type=int)
-    parser.add_option('--title', help='document title')
-    parser.add_option('--subtitle', help='document subtitle')
+    options.add_to_option_parser(parser)
 
     opts, args = parser.parse_args()
     if len(args) < 1:
@@ -435,20 +468,14 @@ def main():
     else:
         output_name = os.path.splitext(pdf_name)[0] + '.html'
 
-    options = Options()
+    # special_case, since parse_config_file wants this defined early
     options.debug = opts.debug
 
     config_name = os.path.join(os.path.dirname(pdf_name), '.pdf2htmlrc')
     parse_config_file(options, config_name, pdf_name)
 
-    if opts.title:
-        options.title = opts.title
-    if opts.subtitle:
-        options.subtitle = opts.subtitle
-    if opts.header:
-        options.header_pos = opts.header
-    if opts.footer:
-        options.footer_pos = opts.footer
+    # command-line options override those set in the config file
+    options.update_from_optparse(opts)
 
     try:
         if os.path.splitext(pdf_name)[1] == '.xml':
