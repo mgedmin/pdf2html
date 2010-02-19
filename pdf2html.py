@@ -186,7 +186,7 @@ def convert_pdfxml_to_html(xml_file, html_file, debug=False):
     text_width = max(map(int, n_most_frequent('width', 3)))
     if debug:
         print "Guessing paragraph width = %d" % text_width
-    text_width = text_width * 9 / 10
+    text_width = text_width * 8 / 10
 
     if debug:
         print "Guessing left margin = %d (odd pages), %d (even pages)" % (odd_left, even_left)
