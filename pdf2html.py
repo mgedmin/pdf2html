@@ -221,6 +221,22 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                 and bold.text
                 and any(c.isalpha() for c in bold.text))
 
+    def drop_cap(prev_chunk, chunk):
+        if not prev_chunk.text or not chunk.text:
+            return False
+        if not 1 <= len(prev_chunk.text) <= 2:
+            return False
+        if int(prev_chunk.get('height')) <= int(chunk.get('height')):
+            return False
+        drop_cap_horiz_gap = int(prev_chunk.get('width')) / 2
+        drop_cap_vert_gap = int(prev_chunk.get('height')) / 4
+        if abs(int(prev_chunk.get('left')) + int(prev_chunk.get('width')) - int(chunk.get('left'))) > drop_cap_horiz_gap:
+            return False
+        return (abs(int(prev_chunk.get('top')) - int(chunk.get('top'))) > drop_cap_vert_gap or
+                abs(int(prev_chunk.get('top')) + int(prev_chunk.get('height'))
+                    - int(chunk.get('top')) - int(chunk.get('height'))) > drop_cap_vert_gap)
+
+
     para = None
     prev_chunk = None
     for page in tree.findall('page'):
@@ -252,12 +268,13 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                     fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
                 ) or (
                     chunk.get('top') == prev_chunk.get('top')
-                )
+                ) or drop_cap(prev_chunk, chunk)
                 if debug and chunk.get('assert_continues') and not continues_paragraph:
                     print "*** DEBUG assertion failed"
                     print ' ', ET.tostring(prev_chunk).rstrip()
                     print ' ', ET.tostring(chunk).rstrip()
                     print "tops match?", chunk.get('top') == prev_chunk.get('top')
+                    print "OR drop cap:", drop_cap(prev_chunk, chunk)
                     print "OR not indent:", int(chunk.get('left')) != indent
                     print "AND same or to the left:", int(chunk.get('left')) <= int(prev_chunk.get('left')) + horiz_leeway
                     print "AND prev chunk wide enough:", int(prev_chunk.get('width')) >= text_width
@@ -273,14 +290,18 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                 # join with previous
                 if chunk.text is None:
                     chunk.text = ''
+                if drop_cap(prev_chunk, chunk):
+                    joiner = ''
+                else:
+                    joiner = '\n'
                 if len(para):
                     if para[-1].tail:
-                        para[-1].tail += '\n' + chunk.text
+                        para[-1].tail += joiner + chunk.text
                     else:
-                        para[-1].tail = '\n' + chunk.text
+                        para[-1].tail = joiner + chunk.text
                 else:
                     if para.text:
-                        para.text += '\n' + chunk.text
+                        para.text += joiner + chunk.text
                     else:
                         para.text = chunk.text
                 para[len(para):] = chunk[:]
