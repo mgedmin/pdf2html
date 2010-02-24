@@ -257,6 +257,17 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
         else:
             return object() # something not equal to anything else
 
+    def margin_and_indent(pagefilter=None):
+        xs = sorted(map(int, n_most_frequent('left', 2, pagefilter)))
+        if len(xs) == 2:
+            return xs
+        elif len(xs) == 1:
+            # object() is something not equal to anything else
+            return xs[0], object()
+        else:
+            # object() is something not equal to anything else
+            return object(), object()
+
     def odd_pages(page):
         "odd pages"
         return int(page.get('number')) % 2 == 1
@@ -273,8 +284,8 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
 
     # XXX could crash if there are no text chunks or all of them are at the
     # same x position
-    odd_left, odd_indent = sorted(map(int, n_most_frequent('left', 2, odd_pages)))
-    even_left, even_indent = sorted(map(int, n_most_frequent('left', 2, even_pages)))
+    odd_left, odd_indent = margin_and_indent(odd_pages)
+    even_left, even_indent = margin_and_indent(even_pages)
 
     horiz_leeway = abs(even_left - odd_left)
     indents = set((odd_indent, even_indent))
