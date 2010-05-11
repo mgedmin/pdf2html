@@ -61,7 +61,7 @@ from collections import defaultdict
 from xml.etree import cElementTree as ET
 
 
-__version__ = '0.2'
+__version__ = '0.3'
 __author__ = 'Marius Gedminas'
 
 
@@ -79,6 +79,7 @@ class Options(object):
         ('header_pos', int),
         ('footer_pos', int),
         ('skip_initial_pages', int),
+        ('skip_generator', bool),
     ]
 
     _help = dict(
@@ -88,6 +89,7 @@ class Options(object):
         title='document title',
         subtitle='document subtitle',
         skip_initial_pages='skip the first N pages of output',
+        skip_generator='skip <meta name="generator" ...>',
     )
 
     def __init__(self):
@@ -177,11 +179,12 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                             {'http-equiv': 'content-type',
                              'content': 'text/html; charset=UTF-8'})
     charset.tail = '\n'
-    generator = ET.SubElement(head, 'meta',
-                              name='generator',
-                              content='pdf2html %s by %s' % (__version__,
-                                                             __author__))
-    generator.tail = '\n'
+    if opts and not opts.skip_generator:
+        generator = ET.SubElement(head, 'meta',
+                                  name='generator',
+                                  content='pdf2html %s by %s' % (__version__,
+                                                                 __author__))
+        generator.tail = '\n'
     title = ET.SubElement(head, 'title')
     if opts and opts.title:
         title.text = opts.title
