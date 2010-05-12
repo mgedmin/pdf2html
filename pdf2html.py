@@ -61,7 +61,7 @@ from collections import defaultdict
 from xml.etree import cElementTree as ET
 
 
-__version__ = '0.3'
+__version__ = '0.4'
 __author__ = 'Marius Gedminas'
 
 
@@ -74,6 +74,7 @@ class Options(object):
 
     _defs = [
         ('debug', bool),
+        ('keep', bool),
         ('title', str),
         ('subtitle', str),
         ('header_pos', int),
@@ -84,6 +85,7 @@ class Options(object):
 
     _help = dict(
         debug='print verbose diagnostics',
+        keep='keep temporary files',
         header_pos='suppress text above this point (header)',
         footer_pos='suppress text below this point (footer)',
         title='document title',
@@ -142,7 +144,10 @@ def convert_pdf_to_html(pdf_file, html_file, opts=None):
         xml_file += '.xml'
         convert_pdfxml_to_html(xml_file, html_file, opts)
     finally:
-        shutil.rmtree(tmpdir)
+        if opts and opts.keep:
+            print "Temporary files kept in %s" % tmpdir
+        else:
+            shutil.rmtree(tmpdir)
 
 
 def convert_pdfxml_to_html(xml_file, html_file, opts=None):
