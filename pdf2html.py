@@ -442,7 +442,9 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                 new_para[:] = chunk[:]
                 new_para.tail = '\n'
                 if suppress:
-                    # I hate ElementTree: it escapes < and > inside comments
+                    # I hate ElementTree: it escapes < and > inside comments.
+                    # This should be fixed in Python 2.7:
+                    # http://bugs.python.org/issue2746
                     comment = ET.Comment('%s: %s' % (suppress_reason, ET.tostring(new_para).strip()))
                     comment.tail = '\n'
                     body.append(comment)
