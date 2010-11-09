@@ -39,10 +39,24 @@ Config file:
        [*.pdf]
        footer_pos = -1
 
-    Currently the only options you can specify this way are header and
-    footer positions if you want to suppres header/footer text from
-    the output.  The position is specified in points, with 0 at the top
-    of the page, increasing downwards.
+    All options you can specify on the command line can be specified
+    in the config file (with the obvious exceptions of --version and --help).
+
+    Currently the most useful options you can specify this way are header and
+    footer positions if you want to suppres header/footer text from the output.
+    The position is specified in points, with 0 at the top of the page,
+    increasing downwards.  All text above the header pos as well as all text
+    below the footer pos is discarded.  Specify -1 (which is the default) to
+    disable.  To find out the right values, use --keep and take a look at
+    text coordinates in the intermediate .xml file.
+
+Bugs:
+
+    There are no tests.
+
+    To disable header_pos/footer_pos it would make sense to use 'off', not -1.
+    I may want to use negative numbers to specify positions relative to the
+    bottom of the page.
 
 Copyright (c) 2009-2010 Marius Gedminas <marius@gedmin.as>.
 Licenced under the GNU GPL.
