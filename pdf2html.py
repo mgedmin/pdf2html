@@ -194,7 +194,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
     if opts and opts.title:
         title.text = opts.title
     else:
-        title.text = html_file
+        title.text = os.path.basename(html_file)
     title.tail = '\n'
     body = ET.SubElement(html, 'body')
     body.text = body.tail = '\n'
