@@ -232,7 +232,6 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
             fonts[fontspec.get('id')] = font
 
     def iter_attrs(attr, pagefilter=None):
-        frequencies = defaultdict(int)
         for page in tree.findall('page'):
             if pagefilter and not pagefilter(page):
                 continue
@@ -296,7 +295,6 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
     even_left, even_indent = margin_and_indent(even_pages)
 
     horiz_leeway = abs(even_left - odd_left)
-    indents = set((odd_indent, even_indent))
 
     # XXX: could crash if there are no text chunks at all
     if debug:
