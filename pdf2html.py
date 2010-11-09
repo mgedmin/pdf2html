@@ -75,7 +75,7 @@ from collections import defaultdict
 from xml.etree import cElementTree as ET
 
 
-__version__ = '0.4'
+__version__ = '0.5'
 __author__ = 'Marius Gedminas'
 
 
