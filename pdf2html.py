@@ -510,7 +510,7 @@ def main():
     options.debug = opts.debug
 
     config_name = os.path.join(os.path.dirname(pdf_name), '.pdf2htmlrc')
-    parse_config_file(options, config_name, pdf_name)
+    parse_config_file(options, config_name, os.path.basename(pdf_name))
 
     # command-line options override those set in the config file
     options.update_from_optparse(opts)
