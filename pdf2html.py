@@ -475,9 +475,14 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
 def main():
     options = Options()
     parser = optparse.OptionParser(usage='%prog input.pdf [output.html]')
+    parser.add_option('--version', action='store_true',
+                      help='print version and exit')
     options.add_to_option_parser(parser)
 
     opts, args = parser.parse_args()
+    if opts.version:
+        print "pdf2html.py v%s by %s" % (__version__, __author__)
+        return
     if len(args) < 1:
         parser.error('please specify an input file name')
     if len(args) > 2:
