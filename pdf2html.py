@@ -58,7 +58,7 @@ Bugs:
     I may want to use negative numbers to specify positions relative to the
     bottom of the page.
 
-Copyright (c) 2009-2010 Marius Gedminas <marius@gedmin.as>.
+Copyright (c) 2009-2011 Marius Gedminas <marius@gedmin.as>.
 Licenced under the GNU GPL.
 """
 
@@ -75,7 +75,7 @@ from collections import defaultdict
 from xml.etree import cElementTree as ET
 
 
-__version__ = '0.5'
+__version__ = '0.6dev'
 __author__ = 'Marius Gedminas'
 
 
@@ -249,8 +249,15 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
         for page in tree.findall('page'):
             if pagefilter and not pagefilter(page):
                 continue
-            for chunk in page.findall('text'):
-                yield chunk.get(attr)
+            if attr == 'leading':
+                prev = None
+                for chunk in page.findall('text'):
+                    if prev is not None:
+                        yield int(chunk.get('top')) - int(prev.get('top'))
+                    prev = chunk
+            else:
+                for chunk in page.findall('text'):
+                    yield chunk.get(attr)
 
     def count_frequencies(attr, pagefilter=None):
         frequencies = defaultdict(int)
@@ -297,6 +304,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
         "even pages"
         return int(page.get('number')) % 2 == 0
 
+    most_frequent_leading = most_frequent('leading')
     most_frequent_height = most_frequent('height')
     most_frequent_font = fonts[most_frequent('font')]
         # XXX sometimes you have more than one fontspec with the same
@@ -309,6 +317,10 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
     even_left, even_indent = margin_and_indent(even_pages)
 
     horiz_leeway = abs(even_left - odd_left)
+
+    leading_leeway = 0 # sometimes superscripts increase the leading of some
+                       # lines inside a paragraph; no idea how to estimate this
+                       # yet
 
     # XXX: could crash if there are no text chunks at all
     if debug:
@@ -324,6 +336,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
         print "Guessing indent = %d (odd pages), %d (even pages)" % (odd_indent, even_indent)
         print "Guessing horizontal leeway = %d" % (horiz_leeway)
         print "Guessing minimum paragraph line width = %d" % text_width
+        print "Guessing leading = %d" % (most_frequent_leading)
 
     header_pos = None
     if opts and opts.header_pos and opts.header_pos != -1:
@@ -396,14 +409,12 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
             if prev_chunk is None or suppress:
                 continues_paragraph = False
             else:
-                sanity_limit = (int(prev_chunk.get('top'))
-                                + int(prev_chunk.get('height'))
-                                + int(fonts[prev_chunk.get('font')].size) / 2)
+                leading = int(chunk.get('top')) - int(prev_chunk.get('top'))
                 continues_paragraph = (
                     int(chunk.get('left')) != indent and
                     int(chunk.get('left')) <= int(prev_chunk.get('left')) + horiz_leeway and
                     int(prev_chunk.get('width')) >= text_width and
-                    int(chunk.get('top')) <= sanity_limit and
+                    leading <= most_frequent_leading + leading_leeway and
                     fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
                 ) or (
                     chunk.get('top') == prev_chunk.get('top')
@@ -418,12 +429,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                     print "AND same or to the left:", int(chunk.get('left')) <= int(prev_chunk.get('left')) + horiz_leeway
                     print "AND prev chunk wide enough:", int(prev_chunk.get('width')) >= text_width
                     print "AND same font:", fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
-                    print "AND close enough vertically:", int(chunk.get('top')) <= sanity_limit
-                    print "where sanity_limit = %d + %d + %d = %d" % (
-                            int(prev_chunk.get('top')),
-                            int(prev_chunk.get('height')),
-                            int(fonts[prev_chunk.get('font')].size) / 2,
-                            sanity_limit)
+                    print "AND close enough vertically:", leading <= most_frequent_leading + leading_leeway
 
             if para is not None and continues_paragraph:
                 # join with previous
