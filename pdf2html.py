@@ -151,7 +151,7 @@ def parse_config_file(options, config_file, filename_to_match='*'):
 
 
 def convert_pdf_to_html(pdf_file, html_file, opts=None):
-    tmpdir = tempfile.mkdtemp('pdf2html')
+    tmpdir = tempfile.mkdtemp(prefix='pdf2html-')
     try:
         xml_file = os.path.join(tmpdir, 'data') # pdf2html always adds .xml
         subprocess.check_call(['pdftohtml', '-xml', pdf_file, xml_file])
