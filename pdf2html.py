@@ -515,6 +515,9 @@ def main():
     # command-line options override those set in the config file
     options.update_from_optparse(opts)
 
+    if os.path.exists(output_name):
+        sys.exit('cowardly refusing to overwrite %s' % output_name)
+
     try:
         if os.path.splitext(pdf_name)[1] == '.xml':
             convert_pdfxml_to_html(pdf_name, output_name, options)
