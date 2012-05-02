@@ -83,6 +83,11 @@ class Error(Exception):
     pass
 
 
+class NotFound(object):
+    def __repr__(self):
+        return 'NotFound'
+
+
 class Options(object):
     """Conversion options"""
 
@@ -283,18 +288,18 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
         if values:
             return values[0]
         else:
-            return object() # something not equal to anything else
+            return NotFound() # something not equal to anything else
 
     def margin_and_indent(pagefilter=None):
         xs = sorted(map(int, n_most_frequent('left', 2, pagefilter)))
         if len(xs) == 2:
             return xs
         elif len(xs) == 1:
-            # object() is something not equal to anything else
-            return xs[0], object()
+            # NotFound() is something not equal to anything else
+            return xs[0], NotFound()
         else:
-            # object() is something not equal to anything else
-            return object(), object()
+            # NotFound() is something not equal to anything else
+            return NotFound(), NotFound()
 
     def odd_pages(page):
         "odd pages"
@@ -306,7 +311,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
 
     most_frequent_leading = most_frequent('leading')
     most_frequent_height = most_frequent('height')
-    most_frequent_font = fonts[most_frequent('font')]
+    most_frequent_font = fonts.get(most_frequent('font'))
         # XXX sometimes you have more than one fontspec with the same
         # attributes (family, size, color), this might skew the frequency
         # distribution somewhat
@@ -316,7 +321,10 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
     odd_left, odd_indent = margin_and_indent(odd_pages)
     even_left, even_indent = margin_and_indent(even_pages)
 
-    horiz_leeway = abs(even_left - odd_left)
+    if isinstance(even_left, NotFound) or isinstance(odd_left, NotFound):
+        horiz_leeway = 0
+    else:
+        horiz_leeway = abs(even_left - odd_left)
 
     leading_leeway = 0 # sometimes superscripts increase the leading of some
                        # lines inside a paragraph; no idea how to estimate this
@@ -324,19 +332,25 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
 
     # XXX: could crash if there are no text chunks at all
     if debug:
-        max_text_width = max(int(w) for w in iter_attrs('width'))
+        try:
+            max_text_width = max(int(w) for w in iter_attrs('width'))
+        except ValueError: # max() arg is an empty sequence
+            max_text_width = 0
         print "Widest text chunk = %d" % max_text_width
-    text_width = max(map(int, n_most_frequent('width', 3)))
+    try:
+        text_width = max(map(int, n_most_frequent('width', 3)))
+    except ValueError: # max() arg is an empty sequence
+        text_width = 0
     if debug:
         print "Guessing paragraph width = %d" % text_width
     text_width = text_width * 8 / 10
 
     if debug:
-        print "Guessing left margin = %d (odd pages), %d (even pages)" % (odd_left, even_left)
-        print "Guessing indent = %d (odd pages), %d (even pages)" % (odd_indent, even_indent)
-        print "Guessing horizontal leeway = %d" % (horiz_leeway)
-        print "Guessing minimum paragraph line width = %d" % text_width
-        print "Guessing leading = %d" % (most_frequent_leading)
+        print "Guessing left margin = %s (odd pages), %s (even pages)" % (odd_left, even_left)
+        print "Guessing indent = %s (odd pages), %s (even pages)" % (odd_indent, even_indent)
+        print "Guessing horizontal leeway = %s" % (horiz_leeway)
+        print "Guessing minimum paragraph line width = %s" % text_width
+        print "Guessing leading = %s" % (most_frequent_leading)
 
     header_pos = None
     if opts and opts.header_pos and opts.header_pos != -1:
