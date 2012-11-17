@@ -327,7 +327,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
     else:
         horiz_leeway = abs(even_left - odd_left)
 
-    leading_leeway = 0 # sometimes superscripts increase the leading of some
+    leading_leeway = 1 # sometimes superscripts increase the leading of some
                        # lines inside a paragraph; no idea how to estimate this
                        # yet
 
