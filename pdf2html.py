@@ -75,7 +75,7 @@ from collections import defaultdict
 from xml.etree import cElementTree as ET
 
 
-__version__ = '0.6dev'
+__version__ = '0.7dev'
 __author__ = 'Marius Gedminas'
 
 
@@ -98,6 +98,7 @@ class Options(object):
         ('subtitle', str),
         ('header_pos', int),
         ('footer_pos', int),
+        ('leading', int),
         ('skip_initial_pages', int),
         ('skip_generator', bool),
     ]
@@ -107,6 +108,7 @@ class Options(object):
         keep='keep temporary files',
         header_pos='suppress text above this point (header)',
         footer_pos='suppress text below this point (footer)',
+        leading='override autodetected intra-paragraph leading',
         title='document title',
         subtitle='document subtitle',
         skip_initial_pages='skip the first N pages of output',
@@ -311,6 +313,8 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
         return int(page.get('number')) % 2 == 0
 
     most_frequent_leading = most_frequent('leading')
+        # lots of short paragraphs break this heuristic
+
     most_frequent_height = most_frequent('height')
     most_frequent_font = fonts.get(most_frequent('font'))
         # XXX sometimes you have more than one fontspec with the same
@@ -352,6 +356,11 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
         print "Guessing horizontal leeway = %s" % (horiz_leeway)
         print "Guessing minimum paragraph line width = %s" % text_width
         print "Guessing leading = %s" % (most_frequent_leading)
+
+    if opts and opts.leading and opts.leading > 0:
+        most_frequent_leading = opts.leading
+        if opts.debug:
+            print "Overriding leading = %d" % most_frequent_leading
 
     header_pos = None
     if opts and opts.header_pos and opts.header_pos != -1:
