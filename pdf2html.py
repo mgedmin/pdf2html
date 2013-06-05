@@ -273,6 +273,34 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
             frequencies[value] += 1
         return frequencies
 
+    def n_smallest(attr, n, pagefilter=None, extratitle=''):
+        frequencies = count_frequencies(attr, pagefilter)
+        frequencies = [(int(v), f) for (v, f) in frequencies.items()]
+        frequencies.sort()
+        if debug:
+            if not extratitle and pagefilter and pagefilter.__doc__:
+                extratitle = " (%s)" % pagefilter.__doc__.strip()
+            print "Top 5 smallest values of %r:%s" % (attr, extratitle)
+            max_f = max(1, max(freq for (value, freq) in frequencies))
+            for v, f in frequencies[:5]:
+                bar = '*' * (30 * f / max_f)
+                print '  %6d chunks have value %-6s %s' % (f, v, bar)
+        return [value for (value, freq) in frequencies[:n]]
+
+    def n_largest(attr, n, pagefilter=None, extratitle=''):
+        frequencies = count_frequencies(attr, pagefilter)
+        frequencies = [(int(v), f) for (v, f) in frequencies.items()]
+        frequencies.sort()
+        if debug:
+            if not extratitle and pagefilter and pagefilter.__doc__:
+                extratitle = " (%s)" % pagefilter.__doc__.strip()
+            print "Top 5 largest values of %r:%s" % (attr, extratitle)
+            max_f = max(1, max(freq for (value, freq) in frequencies))
+            for v, f in frequencies[-5:]:
+                bar = '*' * (30 * f / max_f)
+                print '  %6d chunks have value %-6s %s' % (f, v, bar)
+        return [value for (value, freq) in frequencies[-n:]]
+
     def n_most_frequent(attr, n, pagefilter=None, extratitle=''):
         frequencies = count_frequencies(attr, pagefilter)
         frequencies = [(freq, value) for value, freq in frequencies.items()]
@@ -349,6 +377,11 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
     if debug:
         print "Guessing paragraph width = %d" % text_width
     text_width = text_width * 8 / 10
+
+    # try to autodetect headers/footers?
+    maybe_header = n_smallest('top', 1)[0]
+    maybe_footer = n_largest('top', 1)[0]
+    # XXX: how do I validate these?  ohwell, at least --debug will show
 
     if debug:
         print "Guessing left margin = %s (odd pages), %s (even pages)" % (odd_left, even_left)
