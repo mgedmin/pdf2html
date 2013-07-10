@@ -466,13 +466,17 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
 
     para = None
     prev_chunk = None
+    prev_was_superscript = False
     for page in tree.findall('page'):
         if odd_pages(page):
             indent = odd_indent
+            left_margin = odd_left
         else:
             indent = even_indent
+            left_margin = even_left
         for chunk in page.findall('text'):
             suppress = False
+            start_superscript = False
             if opts and opts.skip_initial_pages and int(page.get('number')) <= opts.skip_initial_pages:
                 suppress = True
                 suppress_reason = 'INITIAL PAGES'
@@ -490,13 +494,13 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                 if leading < most_frequent_leading and int(chunk.get('height')) < int(prev_chunk.get('height')):
                     # superscript
                     start_superscript = True
-                elif leading < 0 and int(chunk.get('height')) > int(prev_chunk.get('height')):
+                elif leading < 0 and int(chunk.get('height')) > int(prev_chunk.get('height')) and prev_was_superscript:
                     # end superscript!
                     end_superscript = True
                 continues_paragraph = start_superscript or end_superscript or (
                     int(chunk.get('left')) != indent and
                     int(chunk.get('left')) <= int(prev_chunk.get('left')) + horiz_leeway and
-                    (int(prev_chunk.get('left')) + int(prev_chunk.get('width')) >= min(odd_left, even_left) + horiz_leeway + text_width) and
+                    (int(prev_chunk.get('left')) + int(prev_chunk.get('width')) >= left_margin + horiz_leeway + text_width) and
                     leading <= most_frequent_leading + leading_leeway and
                     fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
                 ) or (
@@ -562,6 +566,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                     body.append(para)
             if not suppress:
                 prev_chunk = chunk
+                prev_was_superscript = start_superscript
 
     def postprocess(s):
         s = re.sub(ur'-\n([a-ząčęėįšųūž&])', r'\1', s)
