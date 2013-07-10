@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: UTF-8 -*-
 """
 Converts PDF to HTML e-books.
 
@@ -463,7 +464,6 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                 abs(int(prev_chunk.get('top')) + int(prev_chunk.get('height'))
                     - int(chunk.get('top')) - int(chunk.get('height'))) > drop_cap_vert_gap)
 
-
     para = None
     prev_chunk = None
     for page in tree.findall('page'):
@@ -471,9 +471,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
             indent = odd_indent
         else:
             indent = even_indent
-        for chunk in sorted(page.findall('text'),
-                            key=lambda chunk: (int(chunk.get('top')),
-                                               int(chunk.get('left')))):
+        for chunk in page.findall('text'):
             suppress = False
             if opts and opts.skip_initial_pages and int(page.get('number')) <= opts.skip_initial_pages:
                 suppress = True
@@ -488,10 +486,17 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                 continues_paragraph = False
             else:
                 leading = int(chunk.get('top')) - int(prev_chunk.get('top'))
-                continues_paragraph = (
+                start_superscript = end_superscript = False
+                if leading < most_frequent_leading and int(chunk.get('height')) < int(prev_chunk.get('height')):
+                    # superscript
+                    start_superscript = True
+                elif leading < 0 and int(chunk.get('height')) > int(prev_chunk.get('height')):
+                    # end superscript!
+                    end_superscript = True
+                continues_paragraph = start_superscript or end_superscript or (
                     int(chunk.get('left')) != indent and
                     int(chunk.get('left')) <= int(prev_chunk.get('left')) + horiz_leeway and
-                    int(prev_chunk.get('width')) >= text_width and
+                    (int(prev_chunk.get('left')) + int(prev_chunk.get('width')) >= min(odd_left, even_left) + horiz_leeway + text_width) and
                     leading <= most_frequent_leading + leading_leeway and
                     fonts[chunk.get('font')] == fonts[prev_chunk.get('font')]
                 ) or (
@@ -513,21 +518,29 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                 # join with previous
                 if chunk.text is None:
                     chunk.text = ''
-                if drop_cap(prev_chunk, chunk):
-                    joiner = ''
+                if start_superscript:
+                    sup = ET.Element('sup')
+                    sup.text = chunk.text
+                    sup[:] = chunk[:]
+                    sup.tail = para.tail
+                    para.tail = None
+                    para.append(sup)
                 else:
-                    joiner = '\n'
-                if len(para):
-                    if para[-1].tail:
-                        para[-1].tail += joiner + chunk.text
+                    if drop_cap(prev_chunk, chunk):
+                        joiner = ''
                     else:
-                        para[-1].tail = joiner + chunk.text
-                else:
-                    if para.text:
-                        para.text += joiner + chunk.text
+                        joiner = '\n'
+                    if len(para):
+                        if para[-1].tail:
+                            para[-1].tail += joiner + chunk.text
+                        else:
+                            para[-1].tail = joiner + chunk.text
                     else:
-                        para.text = chunk.text
-                para[len(para):] = chunk[:]
+                        if para.text:
+                            para.text += joiner + chunk.text
+                        else:
+                            para.text = chunk.text
+                    para[len(para):] = chunk[:]
             else:
                 # start new paragraph
                 if looks_like_a_heading(chunk):
@@ -551,7 +564,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                 prev_chunk = chunk
 
     def postprocess(s):
-        s = re.sub(r'-\n([a-z])', r'\1', s)
+        s = re.sub(ur'-\n([a-ząčęėįšųūž&])', r'\1', s)
         s = s.replace(u'\uFB00', 'ff')
         s = s.replace(u'\uFB01', 'fi')
         s = s.replace(u'\uFB02', 'fl')
