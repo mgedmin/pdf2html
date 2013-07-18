@@ -105,6 +105,7 @@ class Options(object):
         ('horiz_leeway', int),
         ('skip_initial_pages', int),
         ('skip_generator', bool),
+        ('encoding', str),
     ]
 
     _help = dict(
@@ -120,11 +121,16 @@ class Options(object):
         subtitle='document subtitle',
         skip_initial_pages='skip the first N pages of output',
         skip_generator='skip <meta name="generator" ...>',
+        encoding='character set for the HTML',
+    )
+
+    _defaults = dict(
+        encoding='UTF-8',
     )
 
     def __init__(self):
         for name, type in self._defs:
-            setattr(self, name, None)
+            setattr(self, name, self._defaults.get(name))
 
     def add_to_option_parser(self, parser):
         for name, type in self._defs:
@@ -136,7 +142,8 @@ class Options(object):
                                   dest=name, help=optparse.SUPPRESS_HELP)
             else:
                 parser.add_option('--' + optname, type=type,
-                                  help=self._help[name])
+                                  help=self._help[name],
+                                  default=self._defaults.get(name))
 
     def update_from_config_section(self, cp, section):
         getters = {bool: cp.getboolean,
@@ -530,7 +537,7 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
                     para.tail = None
                     para.append(sup)
                 else:
-                    if drop_cap(prev_chunk, chunk):
+                    if drop_cap(prev_chunk, chunk) or end_superscript:
                         joiner = ''
                     else:
                         joiner = '\n'
@@ -583,7 +590,8 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
         if item.tail:
             item.tail = postprocess(item.tail)
 
-    file(html_file, 'w').write(ET.tostring(html))
+    with file(html_file, 'wb') as f:
+        f.write(ET.tostring(html, encoding=opts.encoding))
 
 
 def main():
