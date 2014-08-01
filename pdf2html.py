@@ -419,6 +419,15 @@ def convert_pdfxml_to_html(xml_file, html_file, opts=None):
         if opts.debug:
             print "Overriding indent = %d" % opts.indent
 
+    if odd_indent == odd_left:
+        odd_indent = -1
+        if opts.debug:
+            print "Disabling indent for odd pages, since same as left margin"
+    if even_indent == even_left:
+        even_indent = -1
+        if opts.debug:
+            print "Disabling indent for even pages, since same as left margin"
+
     if opts and opts.leading and opts.leading > 0:
         most_frequent_leading = opts.leading
         if opts.debug:
