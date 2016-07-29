@@ -10,7 +10,7 @@ Method of operation:
 
     1. Run pdftohtml -xml on the PDF file
     2. Process the XML file, detect paragraph boundaries by paying careful
-       attention to first-line indents
+       attention to first-line indents and other heuristics
     3. Produce an HTML
 
 The HTML produced differs from the one you'd get from pdftohtml in these ways:
@@ -108,6 +108,8 @@ class Options(object):
         ('encoding', str),
     ]
 
+    _skip_from_skeleton = ('debug', 'keep')
+
     _help = dict(
         debug='print verbose diagnostics',
         keep='keep temporary files',
@@ -159,6 +161,17 @@ class Options(object):
             value = getattr(opts, name, None)
             if value is not None:
                 setattr(self, name, value)
+
+    def create_skeleton_config_file(self, filename):
+        with open(filename, 'w') as f:
+            f.write('[*.pdf]\n')
+            for name, type in self._defs:
+                if name in self._skip_from_skeleton:
+                    continue
+                default = self._defaults.get(name)
+                if default is None:
+                    default = {bool: False, int: -1, str: ''}[type]
+                f.write('%s = %s\n' % (name, default))
 
 
 def parse_config_file(options, config_file, filename_to_match='*'):
@@ -608,12 +621,22 @@ def main():
     parser = optparse.OptionParser(usage='%prog input.pdf [output.html]')
     parser.add_option('--version', action='store_true',
                       help='print version and exit')
+    parser.add_option('--init', action='store_true',
+                      help='create a skeleton .pdf2htmlrc in the current directory')
     options.add_to_option_parser(parser)
 
     opts, args = parser.parse_args()
     if opts.version:
         print "pdf2html.py v%s by %s" % (__version__, __author__)
         return
+    if opts.init:
+        config_name = '.pdf2htmlrc'
+        if os.path.exists(config_name):
+            sys.exit('cowardly refusing to overwrite %s' % config_name)
+        else:
+            options.create_skeleton_config_file(config_name)
+            print "wrote %s" % config_name
+            return
     if len(args) < 1:
         parser.error('please specify an input file name')
     if len(args) > 2:
