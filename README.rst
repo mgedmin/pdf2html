@@ -14,7 +14,7 @@ The HTML produced differs from the one you'd get from pdftohtml in these ways:
 * The HTML produced is modern XHTML, not ancient HTML 3 with an explicit dark-grey
   bgcolor on the <BODY> (what's up with that???).
 
-.. _pdftohtml: http://pdftohtml.sourceforge.net/
+.. _pdftohtml: https://poppler.freedesktop.org/
 
 
 Usage
